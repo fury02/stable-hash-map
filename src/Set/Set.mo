@@ -9,88 +9,209 @@ module {
   );
 
   public type Set<K> = (
-    edgeEntry: Entry<K>,
+    root: Entry<K>,
     size: [var Nat32],
   );
 
   public type Iter<T> = {
     prev: () -> ?T;
     next: () -> ?T;
+    peekPrev: () -> ?T;
+    peekNext: () -> ?T;
     current: () -> ?T;
+    started: () -> Bool;
+    finished: () -> Bool;
     reset: () -> Iter<T>;
     movePrev: () -> Iter<T>;
     moveNext: () -> Iter<T>;
   };
 
-  public type IterNative<T> = {
+  public type IterNext<T> = {
     next: () -> ?T;
   };
 
   public type HashUtils<K> = Utils.HashUtils<K>;
 
-  public let { ihash; nhash; thash; phash; bhash; lhash; useHash; calcHash } = Utils;
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  let { Array_tabulate = tabulateArray; Array_init = initArray; nat32ToNat = nat; trap } = Prim;
+  public let { hashInt; hashInt8; hashInt16; hashInt32; hashInt64 } = Utils;
 
-  func unwrap<T>(value: ?T): T = switch (value) { case (?value) value; case (_) trap("unreachable") };
+  public let { hashNat; hashNat8; hashNat16; hashNat32; hashNat64 } = Utils;
+
+  public let { hashText; hashPrincipal; hashBlob; hashBool } = Utils;
+
+  public let { ihash; i8hash; i16hash; i32hash; i64hash } = Utils;
+
+  public let { nhash; n8hash; n16hash; n32hash; n64hash } = Utils;
+
+  public let { thash; phash; bhash; lhash } = Utils;
+
+  public let { useHash; calcHash } = Utils;
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   let SIZE = 0;
+
   let BRANCH_1 = 0;
   let BRANCH_2 = 1;
   let BRANCH_3 = 2;
   let BRANCH_4 = 3;
   let DEQ_PREV = 4;
   let DEQ_NEXT = 5;
+
+  let TEMP_LINK = 4;
+  let CLONE_NEXT = 5;
   let NULL_BRANCH = 6;
+
+  let PUT = 1:Nat32;
+  let MOVE = 16:Nat32;
+  let PUT_MOVE = 17:Nat32;
+
+  let REMOVE = 1:Nat32;
+  let POP = 2:Nat32;
+  let CYCLE = 4:Nat32;
+
   let HASH_OFFSET = 2:Nat32;
   let HASH_CHUNK_SIZE = 4:Nat32;
-  let NULL_HASH = 0xffffffff:Nat32;
+
+  let ROOT = 0xffffffff:Nat32;
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  func createEdgeEntry<K>(nullKey: K): Entry<K> {
-    let tempEntry: Entry<K> = (nullKey, NULL_HASH, [var]);
-    let newEdgeEntry: Entry<K> = (nullKey, NULL_HASH, [var tempEntry, tempEntry, tempEntry, tempEntry, tempEntry, tempEntry]);
+  let { Array_tabulate = tabulateArray; Array_init = initArray; nat32ToNat = nat; trap } = Prim;
 
-    for (index in newEdgeEntry.2.keys()) newEdgeEntry.2[index] := newEdgeEntry;
+  func isSome<T>(value: ?T): Bool = switch (value) { case (null) false; case (_) true };
 
-    return newEdgeEntry;
+  func negate<T>(fn: (T) -> Bool): (T) -> Bool = func(value) = not fn(value);
+
+  func reject<T>(fn: (T) -> ()): (T) -> Bool = func(value) { fn(value); return false };
+
+  func unwrap<T>(value: ?T): T = switch (value) { case (?value) value; case (_) trap("unreachable") };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  let nullHash = (func(_) = ROOT, func(_) = false, func() = trap("unreachable")):Utils.NullHashUtils;
+
+  func rootKey<K>(map: Set<K>): K = map.0.0;
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  func createRoot<K>(nullKey: K): Entry<K> {
+    let temp = (nullKey, ROOT, [var]):Entry<K>;
+    let root = (nullKey, ROOT, [var temp, temp, temp, temp, temp, temp]);
+
+    for (index in root.2.keys()) root.2[index] := root;
+
+    return root;
   };
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  func cloneEntry<K>(entry: Entry<K>, newRoot: Entry<K>): Entry<K> {
+    let (key, hash, links) = entry;
+
+    let newBranch1 = if (links[BRANCH_1].1 != ROOT) cloneEntry(links[BRANCH_1], newRoot) else newRoot;
+    let newBranch2 = if (links[BRANCH_2].1 != ROOT) cloneEntry(links[BRANCH_2], newRoot) else newRoot;
+    let newBranch3 = if (links[BRANCH_3].1 != ROOT) cloneEntry(links[BRANCH_3], newRoot) else newRoot;
+    let newBranch4 = if (links[BRANCH_4].1 != ROOT) cloneEntry(links[BRANCH_4], newRoot) else newRoot;
+
+    let newEntry = (key, hash, [var newBranch1, newBranch2, newBranch3, newBranch4, newRoot, newRoot]);
+
+    links[TEMP_LINK] := newEntry;
+
+    return newEntry;
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  func getSibling<K>(entryParam: Entry<K>, DEQ_NEXT: Nat): Entry<K> {
+    var entry = entryParam.2[DEQ_NEXT];
+
+    loop {
+      let (key, hash, links) = entry;
+
+      if (links[BRANCH_1].1 != hash or links[BRANCH_2].1 != hash or hash == ROOT) {
+        return entry;
+      } else {
+        entry := links[DEQ_NEXT];
+      };
+    };
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
   public func new<K>((getHash, areEqual, getNullKey): HashUtils<K>): Set<K> {
-    return (createEdgeEntry<K>(getNullKey()), [var 0]);
+    return (createRoot(getNullKey()), [var 0]);
   };
 
   public func clear<K>(map: Set<K>) {
-    let (edgeEntry, size) = map;
+    let (root, size) = map;
 
-    for (index in edgeEntry.2.keys()) edgeEntry.2[index] := edgeEntry;
+    for (index in root.2.keys()) root.2[index] := root;
 
     size[SIZE] := 0;
   };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   public func size<K>(map: Set<K>): Nat {
     return nat(map.1[SIZE]);
   };
 
+  public func empty<K>(map: Set<K>): Bool {
+    return map.1[SIZE] == 0;
+  };
+
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  public func has<K>(map: Set<K>, (getHash, areEqual, getNullKey): HashUtils<K>, keyParam: K): Bool {
-    let (edgeEntry, size) = map;
+  public func peek<K>(map: Set<K>): ?K {
+    let (root, size) = map;
+    let (key, hash, links) = root.2[DEQ_PREV];
+
+    return if (hash == ROOT) null else ?key;
+  };
+
+  public func peekFront<K>(map: Set<K>): ?K {
+    let (root, size) = map;
+    let (key, hash, links) = root.2[DEQ_NEXT];
+
+    return if (hash == ROOT) null else ?key;
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  func getHelper<K>(
+    map: Set<K>,
+    (getHash, areEqual, getNullKey): HashUtils<K>,
+    keyParam: K,
+  ): Bool {
+    let (root, size) = map;
     let hashParam = getHash(keyParam);
     var shiftingHash = hashParam;
-    var entry = edgeEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)];
+    var entry = root.2[nat(shiftingHash % HASH_CHUNK_SIZE)];
 
     loop {
       let (key, hash, links) = entry;
 
-      if (hash == hashParam and areEqual(key, keyParam)) return true else if (hash == NULL_HASH) return false else {
+      if (hash == ROOT) {
+        return false;
+      } else if (hash == hashParam and areEqual(key, keyParam)) {
+        return true;
+      } else {
         shiftingHash >>= HASH_OFFSET;
         entry := links[nat(shiftingHash % HASH_CHUNK_SIZE)];
       };
     };
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  public func has<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K): Bool {
+    return getHelper(map, hashUtils, keyParam);
+  };
+
+  public func contains<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K): ?Bool {
+    return if (empty(map)) null else ?getHelper(map, hashUtils, keyParam);
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -99,532 +220,412 @@ module {
     map: Set<K>,
     (getHash, areEqual, getNullKey): HashUtils<K>,
     keyParam: K,
-    moveExisting: Bool,
+    placeParam: ?K,
+    method: Nat32,
     DEQ_PREV: Nat,
     DEQ_NEXT: Nat,
   ): Bool {
-    let (edgeEntry, size) = map;
+    let (root, size) = map;
     let hashParam = getHash(keyParam);
     var shiftingHash = hashParam;
-    var entry = edgeEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)];
-    var parentEntry = edgeEntry;
+    var parent = root;
+    var entry = root.2[nat(shiftingHash % HASH_CHUNK_SIZE)];
+
+    let placeKeyParam = switch (placeParam) { case (?placeKeyParam) placeKeyParam; case (_) root.0 };
+
+    let placeHashParam = switch (placeParam) { case (null) ROOT; case (_) getHash(placeKeyParam) };
+
+    var shiftingPlaceHash = placeHashParam;
+
+    var place = if (shiftingPlaceHash != ROOT) root.2[nat(shiftingPlaceHash % HASH_CHUNK_SIZE)] else root;
 
     loop {
-      let (key, hash, links) = entry;
+      let (placeKey, placeHash, placeLinks) = place;
 
-      if (hash == NULL_HASH) {
-        let deqPrev = edgeEntry.2[DEQ_PREV];
-        let newEntry = (keyParam, hashParam, [var edgeEntry, edgeEntry, edgeEntry, edgeEntry, edgeEntry, edgeEntry]);
+      if (placeHash == ROOT or placeHash == placeHashParam and areEqual(placeKey, placeKeyParam)) loop {
+        let (key, hash, links) = entry;
 
-        newEntry.2[DEQ_PREV] := deqPrev;
-        deqPrev.2[DEQ_NEXT] := newEntry;
-        edgeEntry.2[DEQ_PREV] := newEntry;
-        parentEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := newEntry;
-        size[SIZE] +%= 1;
+        if (hash == ROOT) {
+          let deqPrev = placeLinks[DEQ_PREV];
+          let newEntry = (keyParam, hashParam, [var root, root, root, root, place, place]);
 
-        return false;
-      } else if (hash == hashParam and areEqual(key, keyParam)) {
-        if (moveExisting) {
-          let deqNextOld = links[DEQ_NEXT];
+          newEntry.2[DEQ_PREV] := deqPrev;
+          deqPrev.2[DEQ_NEXT] := newEntry;
+          placeLinks[DEQ_PREV] := newEntry;
+          parent.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := newEntry;
+          size[SIZE] +%= 1;
 
-          if (deqNextOld.1 != NULL_HASH) {
+          return false;
+        } else if (hash == hashParam and areEqual(key, keyParam)) {
+          if (method & MOVE > 0) {
+            let deqPrev = placeLinks[DEQ_PREV];
+            let newEntry = (key, hash, [var links[BRANCH_1], links[BRANCH_2], links[BRANCH_3], links[BRANCH_4], place, place]);
+
+            newEntry.2[DEQ_PREV] := deqPrev;
+            deqPrev.2[DEQ_NEXT] := newEntry;
+            placeLinks[DEQ_PREV] := newEntry;
+            parent.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := newEntry;
+
             let deqPrevOld = links[DEQ_PREV];
-            let deqPrev = edgeEntry.2[DEQ_PREV];
+            let deqNextOld = links[DEQ_NEXT];
 
-            deqPrevOld.2[DEQ_NEXT] := deqNextOld;
             deqNextOld.2[DEQ_PREV] := deqPrevOld;
-            links[DEQ_PREV] := deqPrev;
-            links[DEQ_NEXT] := edgeEntry;
-            deqPrev.2[DEQ_NEXT] := entry;
-            edgeEntry.2[DEQ_PREV] := entry;
+            deqPrevOld.2[DEQ_NEXT] := deqNextOld;
+            links[BRANCH_1] := entry;
+            links[BRANCH_2] := entry;
           };
-        };
 
-        return true;
+          return true;
+        } else {
+          parent := entry;
+          shiftingHash >>= HASH_OFFSET;
+          entry := links[nat(shiftingHash % HASH_CHUNK_SIZE)];
+        };
       } else {
-        parentEntry := entry;
-        shiftingHash >>= HASH_OFFSET;
-        entry := links[nat(shiftingHash % HASH_CHUNK_SIZE)];
+        shiftingPlaceHash >>= HASH_OFFSET;
+        place := placeLinks[nat(shiftingPlaceHash % HASH_CHUNK_SIZE)];
       };
     };
   };
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
   public func put<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K): Bool {
-    return putHelper(map, hashUtils, keyParam, false, DEQ_PREV, DEQ_NEXT);
+    return putHelper(map, hashUtils, keyParam, null, PUT, DEQ_PREV, DEQ_NEXT);
   };
 
   public func putFront<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K): Bool {
-    return putHelper(map, hashUtils, keyParam, false, DEQ_NEXT, DEQ_PREV);
+    return putHelper(map, hashUtils, keyParam, null, PUT, DEQ_NEXT, DEQ_PREV);
   };
 
   public func add<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K) {
-    ignore putHelper(map, hashUtils, keyParam, false, DEQ_PREV, DEQ_NEXT);
+    ignore putHelper(map, hashUtils, keyParam, null, PUT, DEQ_PREV, DEQ_NEXT);
   };
 
   public func addFront<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K) {
-    ignore putHelper(map, hashUtils, keyParam, false, DEQ_NEXT, DEQ_PREV);
+    ignore putHelper(map, hashUtils, keyParam, null, PUT, DEQ_NEXT, DEQ_PREV);
   };
 
   public func putMove<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K): Bool {
-    return putHelper(map, hashUtils, keyParam, true, DEQ_PREV, DEQ_NEXT);
+    return putHelper(map, hashUtils, keyParam, null, PUT_MOVE, DEQ_PREV, DEQ_NEXT);
   };
 
   public func putMoveFront<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K): Bool {
-    return putHelper(map, hashUtils, keyParam, true, DEQ_NEXT, DEQ_PREV);
+    return putHelper(map, hashUtils, keyParam, null, PUT_MOVE, DEQ_NEXT, DEQ_PREV);
   };
 
-  public func addMove<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K) {
-    ignore putHelper(map, hashUtils, keyParam, true, DEQ_PREV, DEQ_NEXT);
+  public func putBefore<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K, placeParam: ?K): Bool {
+    return putHelper(map, hashUtils, keyParam, placeParam, PUT_MOVE, DEQ_PREV, DEQ_NEXT);
   };
 
-  public func addMoveFront<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K) {
-    ignore putHelper(map, hashUtils, keyParam, true, DEQ_NEXT, DEQ_PREV);
+  public func putAfter<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K, placeParam: ?K): Bool {
+    return putHelper(map, hashUtils, keyParam, placeParam, PUT_MOVE, DEQ_NEXT, DEQ_PREV);
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  func putBeforeHelper<K>(
+  func removeHelper<K>(
     map: Set<K>,
     (getHash, areEqual, getNullKey): HashUtils<K>,
     keyParam: K,
-    placeKeyParam: K,
+    method: Nat32,
     DEQ_PREV: Nat,
     DEQ_NEXT: Nat,
-  ): Bool {
-    let (edgeEntry, size) = map;
-    let hashParam = getHash(keyParam);
+  ): ?K {
+    let (root, size) = map;
+
+    let hashParam = if (method == REMOVE) getHash(keyParam) else root.2[DEQ_PREV].1;
+
+    if (hashParam == ROOT) return null;
+
     var shiftingHash = hashParam;
-    var entry = edgeEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)];
-    var parentEntry = edgeEntry;
-
-    let placeHashParam = getHash(placeKeyParam);
-    var shiftingPlaceHash = placeHashParam;
-    var placeEntry = edgeEntry.2[nat(shiftingPlaceHash % HASH_CHUNK_SIZE)];
-
-    loop if (placeEntry.1 == NULL_HASH or placeEntry.1 == placeHashParam and areEqual(placeEntry.0, placeKeyParam)) loop {
-      let (key, hash, links) = entry;
-
-      if (hash == NULL_HASH) {
-        let deqPrev = placeEntry.2[DEQ_PREV];
-        let newEntry = (keyParam, hashParam, [var edgeEntry, edgeEntry, edgeEntry, edgeEntry, placeEntry, placeEntry]);
-
-        newEntry.2[DEQ_PREV] := deqPrev;
-        deqPrev.2[DEQ_NEXT] := newEntry;
-        placeEntry.2[DEQ_PREV] := newEntry;
-        parentEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := newEntry;
-        size[SIZE] +%= 1;
-
-        return false;
-      } else if (hash == hashParam and areEqual(key, keyParam)) {
-        let deqPrevOld = links[DEQ_PREV];
-        let deqNextOld = links[DEQ_NEXT];
-        let deqPrev = placeEntry.2[DEQ_PREV];
-
-        deqPrevOld.2[DEQ_NEXT] := deqNextOld;
-        deqNextOld.2[DEQ_PREV] := deqPrevOld;
-        links[DEQ_PREV] := deqPrev;
-        links[DEQ_NEXT] := placeEntry;
-        deqPrev.2[DEQ_NEXT] := entry;
-        placeEntry.2[DEQ_PREV] := entry;
-
-        return true;
-      } else {
-        parentEntry := entry;
-        shiftingHash >>= HASH_OFFSET;
-        entry := links[nat(shiftingHash % HASH_CHUNK_SIZE)];
-      };
-    } else {
-      shiftingPlaceHash >>= HASH_OFFSET;
-      placeEntry := placeEntry.2[nat(shiftingPlaceHash % HASH_CHUNK_SIZE)];
-    };
-  };
-
-  public func putBefore<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K, placeKeyParam: K): Bool {
-    return putBeforeHelper(map, hashUtils, keyParam, placeKeyParam, DEQ_PREV, DEQ_NEXT);
-  };
-
-  public func putAfter<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K, placeKeyParam: K): Bool {
-    return putBeforeHelper(map, hashUtils, keyParam, placeKeyParam, DEQ_NEXT, DEQ_PREV);
-  };
-
-  public func addBefore<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K, placeKeyParam: K) {
-    ignore putBeforeHelper(map, hashUtils, keyParam, placeKeyParam, DEQ_PREV, DEQ_NEXT);
-  };
-
-  public func addAfter<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K, placeKeyParam: K) {
-    ignore putBeforeHelper(map, hashUtils, keyParam, placeKeyParam, DEQ_NEXT, DEQ_PREV);
-  };
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  public func remove<K>(map: Set<K>, (getHash, areEqual, getNullKey): HashUtils<K>, keyParam: K): Bool {
-    let (edgeEntry, size) = map;
-    let hashParam = getHash(keyParam);
-    var shiftingHash = hashParam;
-    var entry = edgeEntry.2[nat(hashParam % HASH_CHUNK_SIZE)];
-    var parentEntry = edgeEntry;
+    var parent = root;
+    var entry = root.2[nat(shiftingHash % HASH_CHUNK_SIZE)];
 
     loop {
       let (key, hash, links) = entry;
 
-      if (hash == hashParam and areEqual(key, keyParam)) {
-        let deqPrev = links[DEQ_PREV];
-        let deqNext = links[DEQ_NEXT];
-        var leaf = entry;
-        var leafParent = parentEntry;
-        var leafIndex = NULL_BRANCH;
+      if (hash == hashParam and (if (method == REMOVE) areEqual(key, keyParam) else links[DEQ_NEXT].1 == ROOT)) {
+        if (method == CYCLE) {
+          let deqFirst = root.2[DEQ_NEXT];
+          let newEntry = (key, hash, [var links[BRANCH_1], links[BRANCH_2], links[BRANCH_3], links[BRANCH_4], root, root]);
 
-        deqPrev.2[DEQ_NEXT] := deqNext;
-        deqNext.2[DEQ_PREV] := deqPrev;
-        size[SIZE] -%= 1;
+          newEntry.2[DEQ_NEXT] := deqFirst;
+          deqFirst.2[DEQ_PREV] := newEntry;
+          root.2[DEQ_NEXT] := newEntry;
+          parent.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := newEntry;
 
-        loop {
-          let branch1 = leaf.2[BRANCH_1];
+          let deqPrev = links[DEQ_PREV];
 
-          if (branch1.1 != NULL_HASH) {
-            leafIndex := BRANCH_1;
-            leafParent := leaf;
-            leaf := branch1;
-          } else {
-            let branch2 = leaf.2[BRANCH_2];
+          deqPrev.2[DEQ_NEXT] := root;
+          root.2[DEQ_PREV] := deqPrev;
+          links[BRANCH_1] := entry;
+          links[BRANCH_2] := entry;
 
-            if (branch2.1 != NULL_HASH) {
-              leafIndex := BRANCH_2;
+          return ?key;
+        } else {
+          let deqPrev = links[DEQ_PREV];
+          let deqNext = links[DEQ_NEXT];
+
+          deqNext.2[DEQ_PREV] := deqPrev;
+          deqPrev.2[DEQ_NEXT] := deqNext;
+          size[SIZE] -%= 1;
+
+          var leaf = entry;
+          var leafParent = parent;
+          var leafIndex = NULL_BRANCH;
+
+          loop {
+            let (leafKey, leafHash, leafLinks) = leaf;
+
+            if (leafLinks[BRANCH_1].1 != ROOT) {
               leafParent := leaf;
-              leaf := branch2;
+              leaf := leafLinks[BRANCH_1];
+              leafIndex := BRANCH_1;
+            } else if (leafLinks[BRANCH_2].1 != ROOT) {
+              leafParent := leaf;
+              leaf := leafLinks[BRANCH_2];
+              leafIndex := BRANCH_2;
+            } else if (leafLinks[BRANCH_3].1 != ROOT) {
+              leafParent := leaf;
+              leaf := leafLinks[BRANCH_3];
+              leafIndex := BRANCH_3;
+            } else if (leafLinks[BRANCH_4].1 != ROOT) {
+              leafParent := leaf;
+              leaf := leafLinks[BRANCH_4];
+              leafIndex := BRANCH_4;
             } else {
-              let branch3 = leaf.2[BRANCH_3];
-
-              if (branch3.1 != NULL_HASH) {
-                leafIndex := BRANCH_3;
-                leafParent := leaf;
-                leaf := branch3;
+              if (leafIndex == NULL_BRANCH) {
+                parent.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := root;
               } else {
-                let branch4 = leaf.2[BRANCH_4];
+                parent.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := leaf;
+                leafParent.2[leafIndex] := root;
 
-                if (branch4.1 != NULL_HASH) {
-                  leafIndex := BRANCH_4;
-                  leafParent := leaf;
-                  leaf := branch4;
-                } else if (leafIndex == NULL_BRANCH) {
-                  parentEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := edgeEntry;
-
-                  return true;
-                } else {
-                  parentEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := leaf;
-                  leafParent.2[leafIndex] := edgeEntry;
-
-                  for (index in leaf.2.keys()) if (index <= BRANCH_4) leaf.2[index] := entry.2[index];
-
-                  return true;
-                };
+                for (index in leafLinks.keys()) if (index <= BRANCH_4) leafLinks[index] := links[index];
               };
+
+              links[BRANCH_1] := entry;
+              links[BRANCH_2] := entry;
+
+              return ?key;
             };
           };
         };
-      } else if (hash == NULL_HASH) {
-        return false;
+      } else if (hash == ROOT) {
+        return null;
       } else {
-        parentEntry := entry;
+        parent := entry;
         shiftingHash >>= HASH_OFFSET;
         entry := links[nat(shiftingHash % HASH_CHUNK_SIZE)];
       };
     };
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  public func remove<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K): Bool {
+    return isSome(removeHelper(map, hashUtils, keyParam, REMOVE, DEQ_PREV, DEQ_NEXT));
   };
 
   public func delete<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K) {
-    ignore remove(map, hashUtils, keyParam);
-  };
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  func popHelper<K>(map: Set<K>, DEQ_PREV: Nat, DEQ_NEXT: Nat): ?K {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry.2[DEQ_PREV];
-    var shiftingHash = entry.1;
-    var parentEntry = edgeEntry;
-
-    if (shiftingHash == NULL_HASH) return null;
-
-    loop {
-      let (key, hash, links) = entry;
-
-      if (links[DEQ_NEXT].1 == NULL_HASH) {
-        let deqPrev = links[DEQ_PREV];
-        var leaf = entry;
-        var leafParent = parentEntry;
-        var leafIndex = NULL_BRANCH;
-
-        deqPrev.2[DEQ_NEXT] := edgeEntry;
-        edgeEntry.2[DEQ_PREV] := deqPrev;
-        size[SIZE] -%= 1;
-
-        loop {
-          let branch1 = leaf.2[BRANCH_1];
-
-          if (branch1.1 != NULL_HASH) {
-            leafIndex := BRANCH_1;
-            leafParent := leaf;
-            leaf := branch1;
-          } else {
-            let branch2 = leaf.2[BRANCH_2];
-
-            if (branch2.1 != NULL_HASH) {
-              leafIndex := BRANCH_2;
-              leafParent := leaf;
-              leaf := branch2;
-            } else {
-              let branch3 = leaf.2[BRANCH_3];
-
-              if (branch3.1 != NULL_HASH) {
-                leafIndex := BRANCH_3;
-                leafParent := leaf;
-                leaf := branch3;
-              } else {
-                let branch4 = leaf.2[BRANCH_4];
-
-                if (branch4.1 != NULL_HASH) {
-                  leafIndex := BRANCH_4;
-                  leafParent := leaf;
-                  leaf := branch4;
-                } else if (leafIndex == NULL_BRANCH) {
-                  parentEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := edgeEntry;
-
-                  return ?key;
-                } else {
-                  parentEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := leaf;
-                  leafParent.2[leafIndex] := edgeEntry;
-
-                  for (index in leaf.2.keys()) if (index <= BRANCH_4) leaf.2[index] := entry.2[index];
-
-                  return ?key;
-                };
-              };
-            };
-          };
-        };
-      } else {
-        parentEntry := entry;
-        shiftingHash >>= HASH_OFFSET;
-        entry := links[nat(shiftingHash % HASH_CHUNK_SIZE)];
-      };
-    };
+    ignore removeHelper(map, hashUtils, keyParam, REMOVE, DEQ_PREV, DEQ_NEXT);
   };
 
   public func pop<K>(map: Set<K>): ?K {
-    return popHelper(map, DEQ_PREV, DEQ_NEXT);
+    return removeHelper(map, nullHash, rootKey(map), POP, DEQ_PREV, DEQ_NEXT);
   };
 
   public func popFront<K>(map: Set<K>): ?K {
-    return popHelper(map, DEQ_NEXT, DEQ_PREV);
-  };
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  func cycleHelper<K>(map: Set<K>, DEQ_PREV: Nat, DEQ_NEXT: Nat): ?K {
-    let (edgeEntry, size) = map;
-    let entry = edgeEntry.2[DEQ_PREV];
-    let (key, hash, links) = entry;
-
-    if (hash == NULL_HASH) return null else {
-      let deqPrev = links[DEQ_PREV];
-
-      if (deqPrev.1 != NULL_HASH) {
-        let deqFirst = edgeEntry.2[DEQ_NEXT];
-
-        deqPrev.2[DEQ_NEXT] := edgeEntry;
-        edgeEntry.2[DEQ_PREV] := deqPrev;
-        deqFirst.2[DEQ_PREV] := entry;
-        edgeEntry.2[DEQ_NEXT] := entry;
-        links[DEQ_PREV] := edgeEntry;
-        links[DEQ_NEXT] := deqFirst;
-      };
-
-      return ?key;
-    };
+    return removeHelper(map, nullHash, rootKey(map), POP, DEQ_NEXT, DEQ_PREV);
   };
 
   public func cycle<K>(map: Set<K>): ?K {
-    return cycleHelper(map, DEQ_PREV, DEQ_NEXT);
+    return removeHelper(map, nullHash, rootKey(map), CYCLE, DEQ_NEXT, DEQ_PREV);
   };
 
   public func cycleFront<K>(map: Set<K>): ?K {
-    return cycleHelper(map, DEQ_NEXT, DEQ_PREV);
+    return removeHelper(map, nullHash, rootKey(map), CYCLE, DEQ_NEXT, DEQ_PREV);
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  public func peek<K>(map: Set<K>): ?K {
-    let (edgeEntry, size) = map;
-    let (key, hash, links) = edgeEntry.2[DEQ_PREV];
+  func cloneHelper<K>(
+    map: Set<K>,
+    DEQ_PREV: Nat,
+    DEQ_NEXT: Nat,
+  ): Set<K> {
+    let (root, size) = map;
+    let newRoot = createRoot<K>(rootKey(map));
+    var newEntry = newRoot;
+    var entry = root;
 
-    return if (hash == NULL_HASH) null else ?key;
-  };
+    root.2[TEMP_LINK] := newRoot;
 
-  public func peekFront<K>(map: Set<K>): ?K {
-    let (edgeEntry, size) = map;
-    let (key, hash, links) = edgeEntry.2[DEQ_NEXT];
+    for (index in newRoot.2.keys()) if (index <= BRANCH_4) {
+      let branch = root.2[index];
 
-    return if (hash == NULL_HASH) null else ?key;
-  };
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  public func filter<K>(map: Set<K>, fn: (K) -> Bool): Set<K> {
-    let (edgeEntry, size) = map;
-    let newEdgeEntry = createEdgeEntry<K>(edgeEntry.0);
-    var entry = edgeEntry.2[DEQ_NEXT];
-    var deqPrev = newEdgeEntry;
-    var newSize = 0:Nat32;
+      newRoot.2[index] := if (branch.1 != ROOT) cloneEntry(branch, newRoot) else newRoot;
+    };
 
     loop {
-      let (key, hash, links) = entry;
+      let cloneNext = entry.2[CLONE_NEXT];
+      let newDeqNext = cloneNext.2[TEMP_LINK];
 
-      if (hash == NULL_HASH) {
-        newEdgeEntry.2[DEQ_PREV] := deqPrev;
+      newDeqNext.2[DEQ_PREV] := newEntry;
+      newEntry.2[DEQ_NEXT] := newDeqNext;
+      cloneNext.2[TEMP_LINK] := entry;
 
-        return (newEdgeEntry, [var newSize]);
-      } else if (fn(key)) {
-        var shiftingHash = hash;
-        var searchEntry = newEdgeEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)];
-        var parentEntry = newEdgeEntry;
+      if (newDeqNext.1 == ROOT) return (newRoot, [var size[SIZE]]);
 
-        while (searchEntry.1 != NULL_HASH) {
-          parentEntry := searchEntry;
-          shiftingHash >>= HASH_OFFSET;
-          searchEntry := searchEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)];
-        };
-
-        let newEntry = (key, hash, [var newEdgeEntry, newEdgeEntry, newEdgeEntry, newEdgeEntry, deqPrev, newEdgeEntry]);
-
-        deqPrev.2[DEQ_NEXT] := newEntry;
-        parentEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)] := newEntry;
-        deqPrev := newEntry;
-        entry := links[DEQ_NEXT];
-        newSize +%= 1;
-      } else {
-        entry := links[DEQ_NEXT];
-      };
+      newEntry := newDeqNext;
+      entry := cloneNext;
     };
   };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   public func clone<K>(map: Set<K>): Set<K> {
-    return filter<K>(map, func(key) = true);
+    return cloneHelper(map, DEQ_PREV, DEQ_NEXT);
+  };
+
+  public func cloneDesc<K>(map: Set<K>): Set<K> {
+    return cloneHelper(map, DEQ_NEXT, DEQ_PREV);
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  func iterateHelper<K>(map: Set<K>, DEQ_PREV: Nat, DEQ_NEXT: Nat): Iter<K> {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry;
+  func mapFilterHelper<K>(
+    map: Set<K>,
+    hashUtils: HashUtils<K>,
+    acceptEntry: (K) -> Bool,
+    DEQ_PREV: Nat,
+    DEQ_NEXT: Nat,
+  ): Set<K> {
+    let (root, size) = map;
+    let newMap = new<K>(hashUtils);
+    var entry = root;
 
-    return let iter = {
-      prev = func(): ?K {
-        entry := entry.2[DEQ_PREV];
+    loop {
+      entry := getSibling(entry, DEQ_NEXT);
 
-        let (key, hash, links) = entry;
+      let (key, hash, links) = entry;
 
-        return if (hash == NULL_HASH) null else ?key;
-      };
+      if (hash == ROOT) return newMap;
 
-      next = func(): ?K {
-        entry := entry.2[DEQ_NEXT];
-
-        let (key, hash, links) = entry;
-
-        return if (hash == NULL_HASH) null else ?key;
-      };
-
-      current = func(): ?K {
-        let (key, hash, links) = entry;
-
-        return if (hash == NULL_HASH) null else ?key;
-      };
-
-      reset = func(): Iter<K> {
-        entry := edgeEntry;
-
-        return iter;
-      };
-
-      movePrev = func(): Iter<K> {
-        entry := entry.2[DEQ_PREV];
-
-        return iter;
-      };
-
-      moveNext = func(): Iter<K> {
-        entry := entry.2[DEQ_NEXT];
-
-        return iter;
-      };
+      if (acceptEntry(key)) ignore putHelper(newMap, hashUtils, key, null, PUT_MOVE, DEQ_PREV, DEQ_NEXT);
     };
   };
 
-  public func keys<K>(map: Set<K>): Iter<K> {
-    return iterateHelper<K>(map, DEQ_PREV, DEQ_NEXT);
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  public func filter<K>(map: Set<K>, hashUtils: HashUtils<K>, acceptEntry: (K) -> Bool): Set<K> {
+    return mapFilterHelper(map, hashUtils, acceptEntry, DEQ_PREV, DEQ_NEXT);
   };
 
-  public func keysDesc<K>(map: Set<K>): Iter<K> {
-    return iterateHelper<K>(map, DEQ_NEXT, DEQ_PREV);
+  public func filterDesc<K>(map: Set<K>, hashUtils: HashUtils<K>, acceptEntry: (K) -> Bool): Set<K> {
+    return mapFilterHelper(map, hashUtils, acceptEntry, DEQ_NEXT, DEQ_PREV);
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  func iterateFromHelper<K>(
+  func iterateHelper<K>(
     map: Set<K>,
     (getHash, areEqual, getNullKey): HashUtils<K>,
-    keyParam: K,
+    placeParam: ?K,
     DEQ_PREV: Nat,
     DEQ_NEXT: Nat,
   ): Iter<K> {
-    let (edgeEntry, size) = map;
-    let hashParam = getHash(keyParam);
+    let (root, size) = map;
+
+    let keyParam = switch (placeParam) { case (?keyParam) keyParam; case (_) root.0 };
+
+    let hashParam = switch (placeParam) { case (null) ROOT; case (_) getHash(keyParam) };
+
     var shiftingHash = hashParam;
-    var entry = edgeEntry.2[nat(shiftingHash % HASH_CHUNK_SIZE)];
+
+    var entry = if (shiftingHash != ROOT) root.2[nat(shiftingHash % HASH_CHUNK_SIZE)] else root;
 
     loop {
       let (key, hash, links) = entry;
 
-      if (hash == NULL_HASH or hash == hashParam and areEqual(key, keyParam)) return let iter = {
-        prev = func(): ?K {
-          entry := entry.2[DEQ_PREV];
+      if (hash == ROOT or hash == hashParam and areEqual(key, keyParam)) {
+        var started = hash != ROOT;
 
-          let (key, hash, links) = entry;
+        return let iter = {
+          prev = func(): ?K {
+            started := true;
+            entry := getSibling(entry, DEQ_PREV);
 
-          return if (hash == NULL_HASH) null else ?key;
-        };
+            let (key, hash, links) = entry;
 
-        next = func(): ?K {
-          entry := entry.2[DEQ_NEXT];
+            return if (hash == ROOT) null else ?key;
+          };
 
-          let (key, hash, links) = entry;
+          next = func(): ?K {
+            started := true;
+            entry := getSibling(entry, DEQ_NEXT);
 
-          return if (hash == NULL_HASH) null else ?key;
-        };
+            let (key, hash, links) = entry;
 
-        current = func(): ?K {
-          let (key, hash, links) = entry;
+            return if (hash == ROOT) null else ?key;
+          };
 
-          return if (hash == NULL_HASH) null else ?key;
-        };
+          peekPrev = func(): ?K {
+            let deqPrev = getSibling(entry, DEQ_PREV);
 
-        reset = func(): Iter<K> {
-          entry := edgeEntry;
+            entry.2[DEQ_PREV] := deqPrev;
 
-          return iter;
-        };
+            let (deqPrevKey, deqPrevHash, deqPrevLinks) = deqPrev;
 
-        movePrev = func(): Iter<K> {
-          entry := entry.2[DEQ_PREV];
+            return if (deqPrevHash == ROOT) null else ?deqPrevKey;
+          };
 
-          return iter;
-        };
+          peekNext = func(): ?K {
+            let deqNext = getSibling(entry, DEQ_NEXT);
 
-        moveNext = func(): Iter<K> {
-          entry := entry.2[DEQ_NEXT];
+            entry.2[DEQ_NEXT] := deqNext;
 
-          return iter;
+            let (deqNextKey, deqNextHash, deqNextLinks) = deqNext;
+
+            return if (deqNextHash == ROOT) null else ?deqNextKey;
+          };
+
+          current = func(): ?K {
+            let (key, hash, links) = entry;
+
+            return if (hash == ROOT) null else ?key;
+          };
+
+          started = func(): Bool {
+            return started;
+          };
+
+          finished = func(): Bool {
+            let (key, hash, links) = entry;
+
+            return started and hash == ROOT;
+          };
+
+          reset = func(): Iter<K> {
+            started := false;
+            entry := root;
+
+            return iter;
+          };
+
+          movePrev = func(): Iter<K> {
+            started := true;
+            entry := getSibling(entry, DEQ_PREV);
+
+            return iter;
+          };
+
+          moveNext = func(): Iter<K> {
+            started := true;
+            entry := getSibling(entry, DEQ_NEXT);
+
+            return iter;
+          };
         };
       } else {
         shiftingHash >>= HASH_OFFSET;
@@ -633,218 +634,193 @@ module {
     };
   };
 
-  public func keysFrom<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K): Iter<K> {
-    return iterateFromHelper<K>(map, hashUtils, keyParam, DEQ_PREV, DEQ_NEXT);
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  public func keys<K>(map: Set<K>): Iter<K> {
+    return iterateHelper(map, nullHash, null, DEQ_PREV, DEQ_NEXT);
   };
 
-  public func keysFromDesc<K>(map: Set<K>, hashUtils: HashUtils<K>, keyParam: K): Iter<K> {
-    return iterateFromHelper<K>(map, hashUtils, keyParam, DEQ_NEXT, DEQ_PREV);
+  public func keysDesc<K>(map: Set<K>): Iter<K> {
+    return iterateHelper(map, nullHash, null, DEQ_NEXT, DEQ_PREV);
+  };
+
+  public func keysFrom<K>(map: Set<K>, hashUtils: HashUtils<K>, placeParam: ?K): Iter<K> {
+    return iterateHelper(map, hashUtils, placeParam, DEQ_PREV, DEQ_NEXT);
+  };
+
+  public func keysFromDesc<K>(map: Set<K>, hashUtils: HashUtils<K>, placeParam: ?K): Iter<K> {
+    return iterateHelper(map, hashUtils, placeParam, DEQ_NEXT, DEQ_PREV);
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  public func forEach<K>(map: Set<K>, fn: (K) -> ()) {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry;
+  func findHelper<K>(
+    map: Set<K>,
+    acceptEntry: (K) -> Bool,
+    DEQ_NEXT: Nat,
+  ): ?K {
+    let (root, size) = map;
+    var entry = root;
 
     loop {
+      entry := getSibling(entry, DEQ_NEXT);
+
+      let (key, hash, links) = entry;
+
+      if (hash == ROOT) return null else if (acceptEntry(key)) return ?key;
+    };
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  public func find<K>(map: Set<K>, acceptEntry: (K) -> Bool): ?K {
+    return findHelper(map, acceptEntry, DEQ_NEXT);
+  };
+
+  public func findDesc<K>(map: Set<K>, acceptEntry: (K) -> Bool): ?K {
+    return findHelper(map, acceptEntry, DEQ_PREV);
+  };
+
+  public func some<K>(map: Set<K>, acceptEntry: (K) -> Bool): Bool {
+    return isSome(findHelper(map, acceptEntry, DEQ_NEXT));
+  };
+
+  public func someDesc<K>(map: Set<K>, acceptEntry: (K) -> Bool): Bool {
+    return isSome(findHelper(map, acceptEntry, DEQ_PREV));
+  };
+
+  public func every<K>(map: Set<K>, acceptEntry: (K) -> Bool): Bool {
+    return not isSome(findHelper(map, negate(acceptEntry), DEQ_NEXT));
+  };
+
+  public func everyDesc<K>(map: Set<K>, acceptEntry: (K) -> Bool): Bool {
+    return not isSome(findHelper(map, negate(acceptEntry), DEQ_PREV));
+  };
+
+  public func forEach<K>(map: Set<K>, mapEntry: (K) -> ()) {
+    ignore findHelper(map, reject(mapEntry), DEQ_NEXT);
+  };
+
+  public func forEachDesc<K>(map: Set<K>, mapEntry: (K) -> ()) {
+    ignore findHelper(map, reject(mapEntry), DEQ_PREV);
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  func fromIterHelper<K, T>(
+    iter: IterNext<T>,
+    hashUtils: HashUtils<K>,
+    mapItem: (T) -> ?K,
+    DEQ_PREV: Nat,
+    DEQ_NEXT: Nat,
+  ): Set<K> {
+    let map = new(hashUtils);
+
+    for (item in iter) switch (mapItem(item)) {
+      case (?key) ignore putHelper(map, hashUtils, key, null, PUT_MOVE, DEQ_PREV, DEQ_NEXT);
+      case (_) {};
+    };
+
+    return map;
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  public func fromIter<K>(iter: IterNext<K>, hashUtils: HashUtils<K>): Set<K> {
+    return fromIterHelper<K, K>(iter, hashUtils, func(item) = ?item, DEQ_PREV, DEQ_NEXT);
+  };
+
+  public func fromIterDesc<K>(iter: IterNext<K>, hashUtils: HashUtils<K>): Set<K> {
+    return fromIterHelper<K, K>(iter, hashUtils, func(item) = ?item, DEQ_NEXT, DEQ_PREV);
+  };
+
+  public func fromIterMap<K, T>(iter: IterNext<T>, hashUtils: HashUtils<K>, mapItem: (T) -> ?K): Set<K> {
+    return fromIterHelper(iter, hashUtils, mapItem, DEQ_PREV, DEQ_NEXT);
+  };
+
+  public func fromIterMapDesc<K, T>(iter: IterNext<T>, hashUtils: HashUtils<K>, mapItem: (T) -> ?K): Set<K> {
+    return fromIterHelper(iter, hashUtils, mapItem, DEQ_NEXT, DEQ_PREV);
+  };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  func toArrayHelper<K>(
+    map: Set<K>,
+    DEQ_NEXT: Nat,
+  ): [K] {
+    let (root, size) = map;
+    var entry = root;
+
+    return tabulateArray<K>(nat(size[SIZE]), func(i) {
       entry := entry.2[DEQ_NEXT];
 
       let (key, hash, links) = entry;
 
-      if (hash == NULL_HASH) return else fn(key);
-    };
-  };
-
-  public func forEachDesc<K>(map: Set<K>, fn: (K) -> ()) {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry;
-
-    loop {
-      entry := entry.2[DEQ_PREV];
-
-      let (key, hash, links) = entry;
-
-      if (hash == NULL_HASH) return else fn(key);
-    };
-  };
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  public func every<K>(map: Set<K>, fn: (K) -> Bool): Bool {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry;
-
-    loop {
-      entry := entry.2[DEQ_NEXT];
-
-      let (key, hash, links) = entry;
-
-      if (hash == NULL_HASH) return true else if (not fn(key)) return false;
-    };
-  };
-
-  public func everyDesc<K>(map: Set<K>, fn: (K) -> Bool): Bool {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry;
-
-    loop {
-      entry := entry.2[DEQ_PREV];
-
-      let (key, hash, links) = entry;
-
-      if (hash == NULL_HASH) return true else if (not fn(key)) return false;
-    };
-  };
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  public func some<K>(map: Set<K>, fn: (K) -> Bool): Bool {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry;
-
-    loop {
-      entry := entry.2[DEQ_NEXT];
-
-      let (key, hash, links) = entry;
-
-      if (hash == NULL_HASH) return false else if (fn(key)) return true;
-    };
-  };
-
-  public func someDesc<K>(map: Set<K>, fn: (K) -> Bool): Bool {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry;
-
-    loop {
-      entry := entry.2[DEQ_PREV];
-
-      let (key, hash, links) = entry;
-
-      if (hash == NULL_HASH) return false else if (fn(key)) return true;
-    };
-  };
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  public func find<K>(map: Set<K>, fn: (K) -> Bool): ?K {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry;
-
-    loop {
-      entry := entry.2[DEQ_NEXT];
-
-      let (key, hash, links) = entry;
-
-      if (hash == NULL_HASH) return null else if (fn(key)) return ?key;
-    };
-  };
-
-  public func findDesc<K>(map: Set<K>, fn: (K) -> Bool): ?K {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry;
-
-    loop {
-      entry := entry.2[DEQ_PREV];
-
-      let (key, hash, links) = entry;
-
-      if (hash == NULL_HASH) return null else if (fn(key)) return ?key;
-    };
-  };
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  public func fromIter<K>(iter: IterNative<K>, hashUtils: HashUtils<K>): Set<K> {
-    let newMap = new<K>(hashUtils);
-
-    for (key in iter) add(newMap, hashUtils, key);
-
-    return newMap;
-  };
-
-  public func fromIterDesc<K>(iter: IterNative<K>, hashUtils: HashUtils<K>): Set<K> {
-    let newMap = new<K>(hashUtils);
-
-    for (key in iter) addFront(newMap, hashUtils, key);
-
-    return newMap;
-  };
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  public func fromIterMap<K, T>(iter: IterNative<T>, hashUtils: HashUtils<K>, fn: (T) -> ?K): Set<K> {
-    let newMap = new<K>(hashUtils);
-
-    for (item in iter) switch (fn(item)) { case (?key) add(newMap, hashUtils, key); case (_) {} };
-
-    return newMap;
-  };
-
-  public func fromIterMapDesc<K, T>(iter: IterNative<T>, hashUtils: HashUtils<K>, fn: (T) -> ?K): Set<K> {
-    let newMap = new<K>(hashUtils);
-
-    for (item in iter) switch (fn(item)) { case (?key) addFront(newMap, hashUtils, key); case (_) {} };
-
-    return newMap;
+      return key;
+    });
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   public func toArray<K>(map: Set<K>): [K] {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry;
-
-    return tabulateArray<K>(nat(size[SIZE]), func(i) {
-      entry := entry.2[DEQ_NEXT];
-
-      let (key, hash, links) = entry;
-
-      return key;
-    });
+    return toArrayHelper(map, DEQ_NEXT);
   };
 
   public func toArrayDesc<K>(map: Set<K>): [K] {
-    let (edgeEntry, size) = map;
-    var entry = edgeEntry;
-
-    return tabulateArray<K>(nat(size[SIZE]), func(i) {
-      entry := entry.2[DEQ_PREV];
-
-      let (key, hash, links) = entry;
-
-      return key;
-    });
+    return toArrayHelper(map, DEQ_PREV);
   };
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  func toArrayMapHelper<K, T>(map: Set<K>, fn: (K) -> ?T, DEQ_NEXT: Nat): [T] {
-    let (edgeEntry, size) = map;
-    let array = initArray<?T>(nat(size[SIZE]), null);
-    var entry = edgeEntry.2[DEQ_NEXT];
+  func toArrayMapHelper<K, T>(
+    map: Set<K>,
+    mapEntry: (K) -> ?T,
+    DEQ_NEXT: Nat,
+  ): [T] {
+    let (root, size) = map;
+    var entry = root;
+    var maxSize = size[SIZE];
+    var array = initArray<?T>(nat(maxSize), null);
     var arraySize = 0:Nat32;
 
     loop {
+      entry := getSibling(entry, DEQ_NEXT);
+
       let (key, hash, links) = entry;
 
-      if (hash == NULL_HASH) return tabulateArray<T>(nat(arraySize), func(i) = unwrap(array[i])) else switch (fn(key)) {
-        case (null) entry := links[DEQ_NEXT];
+      if (hash == ROOT) return tabulateArray<T>(nat(arraySize), func(i) = unwrap(array[i]));
+
+      switch (mapEntry(key)) {
+        case (null) {};
 
         case (item) {
+          if (arraySize == maxSize) {
+            let prevArray = array;
+
+            maxSize *%= 2;
+            array := initArray<?T>(nat(maxSize), null);
+            arraySize := 0;
+
+            for (item in prevArray.vals()) {
+              array[nat(arraySize)] := item;
+              arraySize +%= 1;
+            };
+          };
+
           array[nat(arraySize)] := item;
-          entry := links[DEQ_NEXT];
           arraySize +%= 1;
         };
       };
     };
   };
 
-  public func toArrayMap<K, T>(map: Set<K>, fn: (K) -> ?T, DEQ_NEXT: Nat): [T] {
-    return toArrayMapHelper(map, fn, DEQ_NEXT);
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  public func toArrayMap<K, T>(map: Set<K>, mapEntry: (K) -> ?T): [T] {
+    return toArrayMapHelper(map, mapEntry, DEQ_NEXT);
   };
 
-  public func toArrayMapDesc<K, T>(map: Set<K>, fn: (K) -> ?T, DEQ_NEXT: Nat): [T] {
-    return toArrayMapHelper(map, fn, DEQ_PREV);
+  public func toArrayMapDesc<K, T>(map: Set<K>, mapEntry: (K) -> ?T): [T] {
+    return toArrayMapHelper(map, mapEntry, DEQ_PREV);
   };
 };

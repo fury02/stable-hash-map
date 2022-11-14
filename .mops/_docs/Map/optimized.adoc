@@ -1,0 +1,1033 @@
+[[module.Map/optimized]]
+= Map/optimized
+
+[[type.Entry]]
+== Entry
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Entry<K, V> = (key : K, value : ?V, hash : Nat32, links : pass:[[]var xref:#type.Entry[Entry]<K, V>pass:[]])
+----
+
+
+
+[[type.Map]]
+== Map
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Map<K, V> = (root : xref:#type.Entry[Entry]<K, V>, size : pass:[[]var Nat32pass:[]])
+----
+
+
+
+[[type.Iter]]
+== Iter
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Iter<T> = { prev : () -> ?T; next : () -> ?T; peekPrev : () -> ?T; peekNext : () -> ?T; current : () -> ?T; started : () -> Bool; finished : () -> Bool; reset : () -> xref:#type.Iter[Iter]<T>; movePrev : () -> xref:#type.Iter[Iter]<T>; moveNext : () -> xref:#type.Iter[Iter]<T> }
+----
+
+
+
+[[type.IterNext]]
+== IterNext
+
+[source.no-repl,motoko,subs=+macros]
+----
+type IterNext<T> = { next : () -> ?T }
+----
+
+
+
+[[type.HashUtils]]
+== HashUtils
+
+[source.no-repl,motoko,subs=+macros]
+----
+type HashUtils<K> = (getHash : (K) -> Nat32, areEqual : (K, K) -> Bool, getNullKey : () -> K)
+----
+
+
+
+[[new]]
+== new
+
+[source.no-repl,motoko,subs=+macros]
+----
+func new<K, V>(hashUtils : xref:#type.HashUtils[HashUtils]<K>) : xref:#type.Map[Map]<K, V>
+----
+
+
+
+[[clear]]
+== clear
+
+[source.no-repl,motoko,subs=+macros]
+----
+func clear<K, V>(map : xref:#type.Map[Map]<K, V>)
+----
+
+
+
+[[size]]
+== size
+
+[source.no-repl,motoko,subs=+macros]
+----
+func size<K, V>(map : xref:#type.Map[Map]<K, V>) : Nat
+----
+
+
+
+[[empty]]
+== empty
+
+[source.no-repl,motoko,subs=+macros]
+----
+func empty<K, V>(map : xref:#type.Map[Map]<K, V>) : Bool
+----
+
+
+
+[[peek]]
+== peek
+
+[source.no-repl,motoko,subs=+macros]
+----
+func peek<K, V>(map : xref:#type.Map[Map]<K, V>) : ?(K, V)
+----
+
+
+
+[[peekFront]]
+== peekFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func peekFront<K, V>(map : xref:#type.Map[Map]<K, V>) : ?(K, V)
+----
+
+
+
+[[get]]
+== get
+
+[source.no-repl,motoko,subs=+macros]
+----
+func get<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K) : ?V
+----
+
+
+
+[[has]]
+== has
+
+[source.no-repl,motoko,subs=+macros]
+----
+func has<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K) : Bool
+----
+
+
+
+[[contains]]
+== contains
+
+[source.no-repl,motoko,subs=+macros]
+----
+func contains<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K) : ?Bool
+----
+
+
+
+[[put]]
+== put
+
+[source.no-repl,motoko,subs=+macros]
+----
+func put<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, valueParam : V) : ?V
+----
+
+
+
+[[putFront]]
+== putFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func putFront<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, valueParam : V) : ?V
+----
+
+
+
+[[set]]
+== set
+
+[source.no-repl,motoko,subs=+macros]
+----
+func set<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, valueParam : V)
+----
+
+
+
+[[setFront]]
+== setFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func setFront<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, valueParam : V)
+----
+
+
+
+[[add]]
+== add
+
+[source.no-repl,motoko,subs=+macros]
+----
+func add<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, valueParam : V) : ?V
+----
+
+
+
+[[addFront]]
+== addFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func addFront<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, valueParam : V) : ?V
+----
+
+
+
+[[replace]]
+== replace
+
+[source.no-repl,motoko,subs=+macros]
+----
+func replace<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, valueParam : V) : ?V
+----
+
+
+
+[[update]]
+== update
+
+[source.no-repl,motoko,subs=+macros]
+----
+func update<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, getNewValue : (K, ?V) -> ?V) : ?V
+----
+
+
+
+[[updateFront]]
+== updateFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func updateFront<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, getNewValue : (K, ?V) -> ?V) : ?V
+----
+
+
+
+[[putMove]]
+== putMove
+
+[source.no-repl,motoko,subs=+macros]
+----
+func putMove<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, valueParam : ?V) : ?V
+----
+
+
+
+[[putMoveFront]]
+== putMoveFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func putMoveFront<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, valueParam : ?V) : ?V
+----
+
+
+
+[[replaceMove]]
+== replaceMove
+
+[source.no-repl,motoko,subs=+macros]
+----
+func replaceMove<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, valueParam : ?V) : ?V
+----
+
+
+
+[[replaceMoveFront]]
+== replaceMoveFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func replaceMoveFront<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, valueParam : ?V) : ?V
+----
+
+
+
+[[updateMove]]
+== updateMove
+
+[source.no-repl,motoko,subs=+macros]
+----
+func updateMove<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, getNewValue : (K, ?V) -> ?V) : ?V
+----
+
+
+
+[[updateMoveFront]]
+== updateMoveFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func updateMoveFront<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, getNewValue : (K, ?V) -> ?V) : ?V
+----
+
+
+
+[[putBefore]]
+== putBefore
+
+[source.no-repl,motoko,subs=+macros]
+----
+func putBefore<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, placeParam : ?K, valueParam : ?V) : ?V
+----
+
+
+
+[[putAfter]]
+== putAfter
+
+[source.no-repl,motoko,subs=+macros]
+----
+func putAfter<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, placeParam : ?K, valueParam : ?V) : ?V
+----
+
+
+
+[[remove]]
+== remove
+
+[source.no-repl,motoko,subs=+macros]
+----
+func remove<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K) : ?V
+----
+
+
+
+[[delete]]
+== delete
+
+[source.no-repl,motoko,subs=+macros]
+----
+func delete<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K)
+----
+
+
+
+[[pop]]
+== pop
+
+[source.no-repl,motoko,subs=+macros]
+----
+func pop<K, V>(map : xref:#type.Map[Map]<K, V>) : ?(K, V)
+----
+
+
+
+[[popFront]]
+== popFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func popFront<K, V>(map : xref:#type.Map[Map]<K, V>) : ?(K, V)
+----
+
+
+
+[[cycle]]
+== cycle
+
+[source.no-repl,motoko,subs=+macros]
+----
+func cycle<K, V>(map : xref:#type.Map[Map]<K, V>) : ?(K, V)
+----
+
+
+
+[[cycleFront]]
+== cycleFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func cycleFront<K, V>(map : xref:#type.Map[Map]<K, V>) : ?(K, V)
+----
+
+
+
+[[clone]]
+== clone
+
+[source.no-repl,motoko,subs=+macros]
+----
+func clone<K, V>(map : xref:#type.Map[Map]<K, V>) : xref:#type.Map[Map]<K, V>
+----
+
+
+
+[[cloneDesc]]
+== cloneDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func cloneDesc<K, V>(map : xref:#type.Map[Map]<K, V>) : xref:#type.Map[Map]<K, V>
+----
+
+
+
+[[mapFilter]]
+== mapFilter
+
+[source.no-repl,motoko,subs=+macros]
+----
+func mapFilter<K, V1, V2>(map : xref:#type.Map[Map]<K, V1>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, mapEntry : (K, V1) -> ?V2) : xref:#type.Map[Map]<K, V2>
+----
+
+
+
+[[mapFilterDesc]]
+== mapFilterDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func mapFilterDesc<K, V1, V2>(map : xref:#type.Map[Map]<K, V1>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, mapEntry : (K, V1) -> ?V2) : xref:#type.Map[Map]<K, V2>
+----
+
+
+
+[[map]]
+== map
+
+[source.no-repl,motoko,subs=+macros]
+----
+func map<K, V1, V2>(map : xref:#type.Map[Map]<K, V1>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, mapEntry : (K, V1) -> V2) : xref:#type.Map[Map]<K, V2>
+----
+
+
+
+[[mapDesc]]
+== mapDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func mapDesc<K, V1, V2>(map : xref:#type.Map[Map]<K, V1>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, mapEntry : (K, V1) -> V2) : xref:#type.Map[Map]<K, V2>
+----
+
+
+
+[[filter]]
+== filter
+
+[source.no-repl,motoko,subs=+macros]
+----
+func filter<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, acceptEntry : (K, V) -> Bool) : xref:#type.Map[Map]<K, V>
+----
+
+
+
+[[filterDesc]]
+== filterDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func filterDesc<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, acceptEntry : (K, V) -> Bool) : xref:#type.Map[Map]<K, V>
+----
+
+
+
+[[keys]]
+== keys
+
+[source.no-repl,motoko,subs=+macros]
+----
+func keys<K, V>(map : xref:#type.Map[Map]<K, V>) : xref:#type.Iter[Iter]<K>
+----
+
+
+
+[[keysDesc]]
+== keysDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func keysDesc<K, V>(map : xref:#type.Map[Map]<K, V>) : xref:#type.Iter[Iter]<K>
+----
+
+
+
+[[vals]]
+== vals
+
+[source.no-repl,motoko,subs=+macros]
+----
+func vals<K, V>(map : xref:#type.Map[Map]<K, V>) : xref:#type.Iter[Iter]<V>
+----
+
+
+
+[[valsDesc]]
+== valsDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func valsDesc<K, V>(map : xref:#type.Map[Map]<K, V>) : xref:#type.Iter[Iter]<V>
+----
+
+
+
+[[entries]]
+== entries
+
+[source.no-repl,motoko,subs=+macros]
+----
+func entries<K, V>(map : xref:#type.Map[Map]<K, V>) : xref:#type.Iter[Iter]<(K, V)>
+----
+
+
+
+[[entriesDesc]]
+== entriesDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func entriesDesc<K, V>(map : xref:#type.Map[Map]<K, V>) : xref:#type.Iter[Iter]<(K, V)>
+----
+
+
+
+[[keysFrom]]
+== keysFrom
+
+[source.no-repl,motoko,subs=+macros]
+----
+func keysFrom<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, placeParam : ?K) : xref:#type.Iter[Iter]<K>
+----
+
+
+
+[[keysFromDesc]]
+== keysFromDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func keysFromDesc<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, placeParam : ?K) : xref:#type.Iter[Iter]<K>
+----
+
+
+
+[[valsFrom]]
+== valsFrom
+
+[source.no-repl,motoko,subs=+macros]
+----
+func valsFrom<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, placeParam : ?K) : xref:#type.Iter[Iter]<V>
+----
+
+
+
+[[valsFromDesc]]
+== valsFromDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func valsFromDesc<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, placeParam : ?K) : xref:#type.Iter[Iter]<V>
+----
+
+
+
+[[entriesFrom]]
+== entriesFrom
+
+[source.no-repl,motoko,subs=+macros]
+----
+func entriesFrom<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, placeParam : ?K) : xref:#type.Iter[Iter]<(K, V)>
+----
+
+
+
+[[entriesFromDesc]]
+== entriesFromDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func entriesFromDesc<K, V>(map : xref:#type.Map[Map]<K, V>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, placeParam : ?K) : xref:#type.Iter[Iter]<(K, V)>
+----
+
+
+
+[[find]]
+== find
+
+[source.no-repl,motoko,subs=+macros]
+----
+func find<K, V>(map : xref:#type.Map[Map]<K, V>, acceptEntry : (K, V) -> Bool) : ?(K, V)
+----
+
+
+
+[[findDesc]]
+== findDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func findDesc<K, V>(map : xref:#type.Map[Map]<K, V>, acceptEntry : (K, V) -> Bool) : ?(K, V)
+----
+
+
+
+[[some]]
+== some
+
+[source.no-repl,motoko,subs=+macros]
+----
+func some<K, V>(map : xref:#type.Map[Map]<K, V>, acceptEntry : (K, V) -> Bool) : Bool
+----
+
+
+
+[[someDesc]]
+== someDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func someDesc<K, V>(map : xref:#type.Map[Map]<K, V>, acceptEntry : (K, V) -> Bool) : Bool
+----
+
+
+
+[[every]]
+== every
+
+[source.no-repl,motoko,subs=+macros]
+----
+func every<K, V>(map : xref:#type.Map[Map]<K, V>, acceptEntry : (K, V) -> Bool) : Bool
+----
+
+
+
+[[everyDesc]]
+== everyDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func everyDesc<K, V>(map : xref:#type.Map[Map]<K, V>, acceptEntry : (K, V) -> Bool) : Bool
+----
+
+
+
+[[forEach]]
+== forEach
+
+[source.no-repl,motoko,subs=+macros]
+----
+func forEach<K, V>(map : xref:#type.Map[Map]<K, V>, mapEntry : (K, V) -> ())
+----
+
+
+
+[[forEachDesc]]
+== forEachDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func forEachDesc<K, V>(map : xref:#type.Map[Map]<K, V>, mapEntry : (K, V) -> ())
+----
+
+
+
+[[fromIter]]
+== fromIter
+
+[source.no-repl,motoko,subs=+macros]
+----
+func fromIter<K, V>(iter : xref:#type.IterNext[IterNext]<(K, V)>, hashUtils : xref:#type.HashUtils[HashUtils]<K>) : xref:#type.Map[Map]<K, V>
+----
+
+
+
+[[fromIterDesc]]
+== fromIterDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func fromIterDesc<K, V>(iter : xref:#type.IterNext[IterNext]<(K, V)>, hashUtils : xref:#type.HashUtils[HashUtils]<K>) : xref:#type.Map[Map]<K, V>
+----
+
+
+
+[[fromIterMap]]
+== fromIterMap
+
+[source.no-repl,motoko,subs=+macros]
+----
+func fromIterMap<K, V, T>(iter : xref:#type.IterNext[IterNext]<T>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, mapItem : (T) -> ?(K, V)) : xref:#type.Map[Map]<K, V>
+----
+
+
+
+[[fromIterMapDesc]]
+== fromIterMapDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func fromIterMapDesc<K, V, T>(iter : xref:#type.IterNext[IterNext]<T>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, mapItem : (T) -> ?(K, V)) : xref:#type.Map[Map]<K, V>
+----
+
+
+
+[[toArray]]
+== toArray
+
+[source.no-repl,motoko,subs=+macros]
+----
+func toArray<K, V>(map : xref:#type.Map[Map]<K, V>) : pass:[[](K, V)pass:[]]
+----
+
+
+
+[[toArrayDesc]]
+== toArrayDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func toArrayDesc<K, V>(map : xref:#type.Map[Map]<K, V>) : pass:[[](K, V)pass:[]]
+----
+
+
+
+[[toArrayMap]]
+== toArrayMap
+
+[source.no-repl,motoko,subs=+macros]
+----
+func toArrayMap<K, V, T>(map : xref:#type.Map[Map]<K, V>, mapEntry : (K, V) -> ?T) : pass:[[]Tpass:[]]
+----
+
+
+
+[[toArrayMapDesc]]
+== toArrayMapDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func toArrayMapDesc<K, V, T>(map : xref:#type.Map[Map]<K, V>, mapEntry : (K, V) -> ?T) : pass:[[]Tpass:[]]
+----
+
+
+
+[[hashInt]]
+== hashInt
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashInt(key : Int) : Nat32
+----
+
+
+
+[[hashInt8]]
+== hashInt8
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashInt8(key : Int8) : Nat32
+----
+
+
+
+[[hashInt16]]
+== hashInt16
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashInt16(key : Int16) : Nat32
+----
+
+
+
+[[hashInt32]]
+== hashInt32
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashInt32(key : Int32) : Nat32
+----
+
+
+
+[[hashInt64]]
+== hashInt64
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashInt64(key : Int64) : Nat32
+----
+
+
+
+[[hashNat]]
+== hashNat
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashNat(key : Nat) : Nat32
+----
+
+
+
+[[hashNat8]]
+== hashNat8
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashNat8(key : Nat8) : Nat32
+----
+
+
+
+[[hashNat16]]
+== hashNat16
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashNat16(key : Nat16) : Nat32
+----
+
+
+
+[[hashNat32]]
+== hashNat32
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashNat32(key : Nat32) : Nat32
+----
+
+
+
+[[hashNat64]]
+== hashNat64
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashNat64(key : Nat64) : Nat32
+----
+
+
+
+[[hashText]]
+== hashText
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashText(key : Text) : Nat32
+----
+
+
+
+[[hashPrincipal]]
+== hashPrincipal
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashPrincipal(key : Principal) : Nat32
+----
+
+
+
+[[hashBlob]]
+== hashBlob
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashBlob(key : Blob) : Nat32
+----
+
+
+
+[[hashBool]]
+== hashBool
+
+[source.no-repl,motoko,subs=+macros]
+----
+func hashBool(key : Bool) : Nat32
+----
+
+
+
+[[ihash]]
+== ihash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let ihash : xref:#type.HashUtils[HashUtils]<Int>
+----
+
+
+
+[[i8hash]]
+== i8hash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let i8hash : xref:#type.HashUtils[HashUtils]<Int8>
+----
+
+
+
+[[i16hash]]
+== i16hash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let i16hash : xref:#type.HashUtils[HashUtils]<Int16>
+----
+
+
+
+[[i32hash]]
+== i32hash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let i32hash : xref:#type.HashUtils[HashUtils]<Int32>
+----
+
+
+
+[[i64hash]]
+== i64hash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let i64hash : xref:#type.HashUtils[HashUtils]<Int64>
+----
+
+
+
+[[nhash]]
+== nhash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let nhash : xref:#type.HashUtils[HashUtils]<Nat>
+----
+
+
+
+[[n8hash]]
+== n8hash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let n8hash : xref:#type.HashUtils[HashUtils]<Nat8>
+----
+
+
+
+[[n16hash]]
+== n16hash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let n16hash : xref:#type.HashUtils[HashUtils]<Nat16>
+----
+
+
+
+[[n32hash]]
+== n32hash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let n32hash : xref:#type.HashUtils[HashUtils]<Nat32>
+----
+
+
+
+[[n64hash]]
+== n64hash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let n64hash : xref:#type.HashUtils[HashUtils]<Nat64>
+----
+
+
+
+[[thash]]
+== thash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let thash : xref:#type.HashUtils[HashUtils]<Text>
+----
+
+
+
+[[phash]]
+== phash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let phash : xref:#type.HashUtils[HashUtils]<Principal>
+----
+
+
+
+[[bhash]]
+== bhash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let bhash : xref:#type.HashUtils[HashUtils]<Blob>
+----
+
+
+
+[[lhash]]
+== lhash
+
+[source.no-repl,motoko,subs=+macros]
+----
+let lhash : xref:#type.HashUtils[HashUtils]<Bool>
+----
+
+
+
+[[useHash]]
+== useHash
+
+[source.no-repl,motoko,subs=+macros]
+----
+func useHash<K>(hashUtils : xref:#type.HashUtils[HashUtils]<K>, hash : Nat32) : xref:#type.HashUtils[HashUtils]<K>
+----
+
+
+
+[[calcHash]]
+== calcHash
+
+[source.no-repl,motoko,subs=+macros]
+----
+func calcHash<K>(hashUtils : xref:#type.HashUtils[HashUtils]<K>, key : K) : xref:#type.HashUtils[HashUtils]<K>
+----
+
+
+

@@ -1,0 +1,53 @@
+[[module.lib]]
+= lib
+
+[[type.Entry]]
+== Entry
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Entry<K, V> = xref:Map/optimized.adoc#type.Entry[Map.Entry]<K, V>
+----
+
+
+
+[[type.Map]]
+== Map
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Map<K, V> = xref:Map/optimized.adoc#type.Map[Map.Map]<K, V>
+----
+
+
+
+[[type.Iter]]
+== Iter
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Iter<T> = xref:Map/optimized.adoc#type.Iter[Map.Iter]<T>
+----
+
+
+
+[[type.IterNext]]
+== IterNext
+
+[source.no-repl,motoko,subs=+macros]
+----
+type IterNext<T> = xref:Map/optimized.adoc#type.IterNext[Map.IterNext]<T>
+----
+
+
+
+[[type.HashUtils]]
+== HashUtils
+
+[source.no-repl,motoko,subs=+macros]
+----
+type HashUtils<K> = xref:Map/optimized.adoc#type.HashUtils[Map.HashUtils]<K>
+----
+
+
+

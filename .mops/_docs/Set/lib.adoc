@@ -1,0 +1,53 @@
+[[module.Set/lib]]
+= Set/lib
+
+[[type.Entry]]
+== Entry
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Entry<K> = xref:optimized.adoc#type.Entry[Set.Entry]<K>
+----
+
+
+
+[[type.Set]]
+== Set
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Set<K> = xref:optimized.adoc#type.Set[Set.Set]<K>
+----
+
+
+
+[[type.Iter]]
+== Iter
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Iter<T> = xref:optimized.adoc#type.Iter[Set.Iter]<T>
+----
+
+
+
+[[type.IterNext]]
+== IterNext
+
+[source.no-repl,motoko,subs=+macros]
+----
+type IterNext<T> = xref:optimized.adoc#type.IterNext[Set.IterNext]<T>
+----
+
+
+
+[[type.HashUtils]]
+== HashUtils
+
+[source.no-repl,motoko,subs=+macros]
+----
+type HashUtils<K> = xref:optimized.adoc#type.HashUtils[Set.HashUtils]<K>
+----
+
+
+

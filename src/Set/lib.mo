@@ -7,45 +7,53 @@ module {
 
   public type Iter<T> = Set.Iter<T>;
 
-  public type IterNative<T> = Set.IterNative<T>;
+  public type IterNext<T> = Set.IterNext<T>;
 
   public type HashUtils<K> = Set.HashUtils<K>;
 
-  public let { ihash; nhash; thash; phash; bhash; lhash; useHash; calcHash } = Set;
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  public let { new; clear; size } = Set;
+  public let { hashInt; hashInt8; hashInt16; hashInt32; hashInt64 } = Set;
 
-  public let { has } = Set;
+  public let { hashNat; hashNat8; hashNat16; hashNat32; hashNat64 } = Set;
 
-  public let { put; putFront; add; addFront; putMove; putMoveFront; addMove; addMoveFront } = Set;
+  public let { hashText; hashPrincipal; hashBlob; hashBool } = Set;
 
-  public let { putBefore; putAfter; addBefore; addAfter } = Set;
+  public let { ihash; i8hash; i16hash; i32hash; i64hash } = Set;
 
-  public let { remove; delete } = Set;
+  public let { nhash; n8hash; n16hash; n32hash; n64hash } = Set;
 
-  public let { pop; popFront } = Set;
+  public let { thash; phash; bhash; lhash } = Set;
 
-  public let { cycle; cycleFront } = Set;
+  public let { useHash; calcHash } = Set;
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  public let { new; clear } = Set;
+
+  public let { size; empty } = Set;
 
   public let { peek; peekFront } = Set;
 
-  public let { filter; clone } = Set;
+  public let { has; contains } = Set;
+
+  public let { put; putFront; add; addFront } = Set;
+
+  public let { putMove; putMoveFront; putBefore; putAfter } = Set;
+
+  public let { remove; delete; pop; popFront; cycle; cycleFront } = Set;
+
+  public let { filter; filterDesc } = Set;
+
+  public let { clone; cloneDesc } = Set;
 
   public let { keys; keysDesc } = Set;
 
   public let { keysFrom; keysFromDesc } = Set;
 
-  public let { forEach; forEachDesc } = Set;
+  public let { find; findDesc; some; someDesc; every; everyDesc; forEach; forEachDesc } = Set;
 
-  public let { every; everyDesc } = Set;
-
-  public let { some; someDesc } = Set;
-
-  public let { find; findDesc } = Set;
-
-  public let { fromIter; fromIterDesc } = Set;
-
-  public let { fromIterMap; fromIterMapDesc } = Set;
+  public let { fromIter; fromIterDesc; fromIterMap; fromIterMapDesc } = Set;
 
   public let { toArray; toArrayDesc } = Set;
 

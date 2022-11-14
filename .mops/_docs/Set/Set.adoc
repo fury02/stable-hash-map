@@ -1,0 +1,513 @@
+[[module.Set/Set]]
+= Set/Set
+
+[[type.Entry]]
+== Entry
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Entry<K> = (key : K, hash : Nat32, links : pass:[[]var xref:#type.Entry[Entry]<K>pass:[]])
+----
+
+
+
+[[type.Set]]
+== Set
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Set<K> = (root : xref:#type.Entry[Entry]<K>, size : pass:[[]var Nat32pass:[]])
+----
+
+
+
+[[type.Iter]]
+== Iter
+
+[source.no-repl,motoko,subs=+macros]
+----
+type Iter<T> = { prev : () -> ?T; next : () -> ?T; peekPrev : () -> ?T; peekNext : () -> ?T; current : () -> ?T; started : () -> Bool; finished : () -> Bool; reset : () -> xref:#type.Iter[Iter]<T>; movePrev : () -> xref:#type.Iter[Iter]<T>; moveNext : () -> xref:#type.Iter[Iter]<T> }
+----
+
+
+
+[[type.IterNext]]
+== IterNext
+
+[source.no-repl,motoko,subs=+macros]
+----
+type IterNext<T> = { next : () -> ?T }
+----
+
+
+
+[[type.HashUtils]]
+== HashUtils
+
+[source.no-repl,motoko,subs=+macros]
+----
+type HashUtils<K> = xref:../utils.adoc#type.HashUtils[Utils.HashUtils]<K>
+----
+
+
+
+[[new]]
+== new
+
+[source.no-repl,motoko,subs=+macros]
+----
+func new<K>() : xref:#type.Set[Set]<K>
+----
+
+
+
+[[clear]]
+== clear
+
+[source.no-repl,motoko,subs=+macros]
+----
+func clear<K>(map : xref:#type.Set[Set]<K>)
+----
+
+
+
+[[size]]
+== size
+
+[source.no-repl,motoko,subs=+macros]
+----
+func size<K>(map : xref:#type.Set[Set]<K>) : Nat
+----
+
+
+
+[[empty]]
+== empty
+
+[source.no-repl,motoko,subs=+macros]
+----
+func empty<K>(map : xref:#type.Set[Set]<K>) : Bool
+----
+
+
+
+[[peek]]
+== peek
+
+[source.no-repl,motoko,subs=+macros]
+----
+func peek<K>(map : xref:#type.Set[Set]<K>) : ?K
+----
+
+
+
+[[peekFront]]
+== peekFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func peekFront<K>(map : xref:#type.Set[Set]<K>) : ?K
+----
+
+
+
+[[has]]
+== has
+
+[source.no-repl,motoko,subs=+macros]
+----
+func has<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K) : Bool
+----
+
+
+
+[[contains]]
+== contains
+
+[source.no-repl,motoko,subs=+macros]
+----
+func contains<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K) : ?Bool
+----
+
+
+
+[[put]]
+== put
+
+[source.no-repl,motoko,subs=+macros]
+----
+func put<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K) : Bool
+----
+
+
+
+[[putFront]]
+== putFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func putFront<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K) : Bool
+----
+
+
+
+[[add]]
+== add
+
+[source.no-repl,motoko,subs=+macros]
+----
+func add<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K)
+----
+
+
+
+[[addFront]]
+== addFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func addFront<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K)
+----
+
+
+
+[[putMove]]
+== putMove
+
+[source.no-repl,motoko,subs=+macros]
+----
+func putMove<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K) : Bool
+----
+
+
+
+[[putMoveFront]]
+== putMoveFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func putMoveFront<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K) : Bool
+----
+
+
+
+[[putBefore]]
+== putBefore
+
+[source.no-repl,motoko,subs=+macros]
+----
+func putBefore<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, placeParam : ?K) : Bool
+----
+
+
+
+[[putAfter]]
+== putAfter
+
+[source.no-repl,motoko,subs=+macros]
+----
+func putAfter<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K, placeParam : ?K) : Bool
+----
+
+
+
+[[remove]]
+== remove
+
+[source.no-repl,motoko,subs=+macros]
+----
+func remove<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K) : Bool
+----
+
+
+
+[[delete]]
+== delete
+
+[source.no-repl,motoko,subs=+macros]
+----
+func delete<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, keyParam : K)
+----
+
+
+
+[[pop]]
+== pop
+
+[source.no-repl,motoko,subs=+macros]
+----
+func pop<K>(map : xref:#type.Set[Set]<K>) : ?K
+----
+
+
+
+[[popFront]]
+== popFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func popFront<K>(map : xref:#type.Set[Set]<K>) : ?K
+----
+
+
+
+[[cycle]]
+== cycle
+
+[source.no-repl,motoko,subs=+macros]
+----
+func cycle<K>(map : xref:#type.Set[Set]<K>) : ?K
+----
+
+
+
+[[cycleFront]]
+== cycleFront
+
+[source.no-repl,motoko,subs=+macros]
+----
+func cycleFront<K>(map : xref:#type.Set[Set]<K>) : ?K
+----
+
+
+
+[[clone]]
+== clone
+
+[source.no-repl,motoko,subs=+macros]
+----
+func clone<K>(map : xref:#type.Set[Set]<K>) : xref:#type.Set[Set]<K>
+----
+
+
+
+[[cloneDesc]]
+== cloneDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func cloneDesc<K>(map : xref:#type.Set[Set]<K>) : xref:#type.Set[Set]<K>
+----
+
+
+
+[[filter]]
+== filter
+
+[source.no-repl,motoko,subs=+macros]
+----
+func filter<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, acceptEntry : (K) -> Bool) : xref:#type.Set[Set]<K>
+----
+
+
+
+[[filterDesc]]
+== filterDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func filterDesc<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, acceptEntry : (K) -> Bool) : xref:#type.Set[Set]<K>
+----
+
+
+
+[[keys]]
+== keys
+
+[source.no-repl,motoko,subs=+macros]
+----
+func keys<K>(map : xref:#type.Set[Set]<K>) : xref:#type.Iter[Iter]<K>
+----
+
+
+
+[[keysDesc]]
+== keysDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func keysDesc<K>(map : xref:#type.Set[Set]<K>) : xref:#type.Iter[Iter]<K>
+----
+
+
+
+[[keysFrom]]
+== keysFrom
+
+[source.no-repl,motoko,subs=+macros]
+----
+func keysFrom<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, placeParam : ?K) : xref:#type.Iter[Iter]<K>
+----
+
+
+
+[[keysFromDesc]]
+== keysFromDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func keysFromDesc<K>(map : xref:#type.Set[Set]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, placeParam : ?K) : xref:#type.Iter[Iter]<K>
+----
+
+
+
+[[find]]
+== find
+
+[source.no-repl,motoko,subs=+macros]
+----
+func find<K>(map : xref:#type.Set[Set]<K>, acceptEntry : (K) -> Bool) : ?K
+----
+
+
+
+[[findDesc]]
+== findDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func findDesc<K>(map : xref:#type.Set[Set]<K>, acceptEntry : (K) -> Bool) : ?K
+----
+
+
+
+[[some]]
+== some
+
+[source.no-repl,motoko,subs=+macros]
+----
+func some<K>(map : xref:#type.Set[Set]<K>, acceptEntry : (K) -> Bool) : Bool
+----
+
+
+
+[[someDesc]]
+== someDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func someDesc<K>(map : xref:#type.Set[Set]<K>, acceptEntry : (K) -> Bool) : Bool
+----
+
+
+
+[[every]]
+== every
+
+[source.no-repl,motoko,subs=+macros]
+----
+func every<K>(map : xref:#type.Set[Set]<K>, acceptEntry : (K) -> Bool) : Bool
+----
+
+
+
+[[everyDesc]]
+== everyDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func everyDesc<K>(map : xref:#type.Set[Set]<K>, acceptEntry : (K) -> Bool) : Bool
+----
+
+
+
+[[forEach]]
+== forEach
+
+[source.no-repl,motoko,subs=+macros]
+----
+func forEach<K>(map : xref:#type.Set[Set]<K>, mapEntry : (K) -> ())
+----
+
+
+
+[[forEachDesc]]
+== forEachDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func forEachDesc<K>(map : xref:#type.Set[Set]<K>, mapEntry : (K) -> ())
+----
+
+
+
+[[fromIter]]
+== fromIter
+
+[source.no-repl,motoko,subs=+macros]
+----
+func fromIter<K>(iter : xref:#type.IterNext[IterNext]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>) : xref:#type.Set[Set]<K>
+----
+
+
+
+[[fromIterDesc]]
+== fromIterDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func fromIterDesc<K>(iter : xref:#type.IterNext[IterNext]<K>, hashUtils : xref:#type.HashUtils[HashUtils]<K>) : xref:#type.Set[Set]<K>
+----
+
+
+
+[[fromIterMap]]
+== fromIterMap
+
+[source.no-repl,motoko,subs=+macros]
+----
+func fromIterMap<K, T>(iter : xref:#type.IterNext[IterNext]<T>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, mapItem : (T) -> ?K) : xref:#type.Set[Set]<K>
+----
+
+
+
+[[fromIterMapDesc]]
+== fromIterMapDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func fromIterMapDesc<K, T>(iter : xref:#type.IterNext[IterNext]<T>, hashUtils : xref:#type.HashUtils[HashUtils]<K>, mapItem : (T) -> ?K) : xref:#type.Set[Set]<K>
+----
+
+
+
+[[toArray]]
+== toArray
+
+[source.no-repl,motoko,subs=+macros]
+----
+func toArray<K>(map : xref:#type.Set[Set]<K>) : pass:[[]Kpass:[]]
+----
+
+
+
+[[toArrayDesc]]
+== toArrayDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func toArrayDesc<K>(map : xref:#type.Set[Set]<K>) : pass:[[]Kpass:[]]
+----
+
+
+
+[[toArrayMap]]
+== toArrayMap
+
+[source.no-repl,motoko,subs=+macros]
+----
+func toArrayMap<K, T>(map : xref:#type.Set[Set]<K>, mapEntry : (K) -> ?T) : pass:[[]Tpass:[]]
+----
+
+
+
+[[toArrayMapDesc]]
+== toArrayMapDesc
+
+[source.no-repl,motoko,subs=+macros]
+----
+func toArrayMapDesc<K, T>(map : xref:#type.Set[Set]<K>, mapEntry : (K) -> ?T) : pass:[[]Tpass:[]]
+----
+
+
+
